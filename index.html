@@ -383,8 +383,9 @@ function submitReport() {
 
   fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(payload),
+    redirect: 'follow'
   })
   .then(function(r) { return r.json(); })
   .then(function(res) {
