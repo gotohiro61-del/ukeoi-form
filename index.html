@@ -44,19 +44,31 @@ body{
 .station-row{display:flex;gap:8px;margin-bottom:8px}
 .station-row input{flex:1}
 
-/* Staff row */
-.staff-row{background:#f9f9fb;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #e5e5ea}
-.staff-row .staff-num{font-size:11px;font-weight:600;color:#86868b;margin-bottom:8px}
-.staff-row .staff-fields{display:grid;grid-template-columns:1fr;gap:8px}
-.staff-row .time-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px}
-.staff-row input,.staff-row select{padding:10px;font-size:15px;border:1px solid #d2d2d7;border-radius:8px;background:#fff;width:100%}
-.staff-row .remove-btn{background:none;border:none;color:#ff3b30;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;text-align:right}
-
-/* Default work */
-.default-work{background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #bfdbfe}
-.default-work .dw-title{font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px}
-.default-work .dw-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:8px}
-.default-work input{padding:10px;font-size:15px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;width:100%}
+/* Staff (matching houkoku-form style) */
+.nw-box{background:#f5f5f7;border-radius:10px;padding:14px;margin-bottom:16px}
+.nw-title{font-size:13px;font-weight:600;color:#1d1d1f;margin-bottom:10px}
+.nw-inputs{display:grid;grid-template-columns:1fr 1fr 72px;gap:8px;margin-bottom:10px}
+.nw-inputs input{width:100%;padding:8px;border:1px solid #d2d2d7;border-radius:8px;font-size:15px;background:#fff;text-align:center;font-family:inherit;-webkit-appearance:none}
+.nw-inputs input:focus{outline:none;border-color:#007aff}
+.nw-label{font-size:11px;color:#86868b;text-align:center;margin-bottom:2px}
+.apply-btn{width:100%;padding:10px;background:#007aff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.apply-btn:active{opacity:.75}
+.staff-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:.5px solid rgba(0,0,0,.06)}
+.staff-row:last-child{border-bottom:none}
+.staff-num{font-size:11px;color:#aeaeb2;width:20px;text-align:center;flex-shrink:0}
+.staff-row select{flex:1;padding:7px 8px;border:1px solid #d2d2d7;border-radius:6px;font-size:15px;background:#fff;color:#1d1d1f;font-family:inherit}
+.staff-row select:focus{outline:none;border-color:#007aff}
+.nw-toggle{display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#86868b;white-space:nowrap;-webkit-user-select:none}
+.nw-toggle input{display:none}
+.nw-toggle .sw{width:34px;height:20px;background:#d2d2d7;border-radius:10px;position:relative;transition:background .2s}
+.nw-toggle .sw::after{content:'';width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.nw-toggle input:checked+.sw{background:#34c759}
+.nw-toggle input:checked+.sw::after{transform:translateX(14px)}
+.staff-times{display:grid;grid-template-columns:1fr 1fr 56px;gap:4px;margin-top:6px;margin-left:28px}
+.staff-times.collapsed{display:none}
+.staff-times input{width:100%;padding:6px;border:1px solid #d2d2d7;border-radius:6px;font-size:13px;text-align:center;background:#fff;font-family:inherit}
+.staff-times input:focus{outline:none;border-color:#007aff}
+.st-label{font-size:9px;color:#aeaeb2;text-align:center}
 
 /* Buttons */
 .btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:17px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:-.01em}
@@ -159,25 +171,19 @@ body{
     </div>
   </div>
 
-  <!-- デフォルト勤務 -->
-  <div class="section">
-    <div class="section-inner">
-      <div class="default-work">
-        <div class="dw-title">デフォルト勤務</div>
-        <div class="dw-row">
-          <input type="time" id="default-checkin" placeholder="出勤">
-          <input type="time" id="default-checkout" placeholder="退勤">
-          <input type="number" id="default-break" placeholder="休憩" min="0" step="15" value="60">
-        </div>
-        <button class="btn btn-apply" onclick="applyDefaults()">全スタッフに適用</button>
-      </div>
-    </div>
-  </div>
-
   <!-- スタッフ勤務 -->
   <div class="section">
     <div class="section-inner">
       <div class="section-title">スタッフ勤務</div>
+      <div class="nw-box">
+        <div class="nw-title">通常勤務</div>
+        <div class="nw-inputs">
+          <div><div class="nw-label">出勤</div><input type="time" id="default-checkin" value="09:00"></div>
+          <div><div class="nw-label">退勤</div><input type="time" id="default-checkout" value="18:00"></div>
+          <div><div class="nw-label">休憩</div><input type="number" id="default-break" value="60" min="0" step="15"></div>
+        </div>
+        <button class="apply-btn" onclick="applyDefaults()">全員に適用</button>
+      </div>
       <div id="staff-container"></div>
       <button class="btn btn-add" onclick="addStaffRow()">＋ スタッフ追加</button>
     </div>
@@ -450,73 +456,76 @@ function addStaffRow() {
   var idx = staffRowCount;
   var container = document.getElementById('staff-container');
 
-  var div = document.createElement('div');
-  div.className = 'staff-row';
-  div.id = 'staff-row-' + idx;
-
-  var optionsHtml = '<option value="">-- スタッフ選択 --</option>';
+  var optionsHtml = '<option value="">--</option>';
   for (var i = 0; i < staffListCache.length; i++) {
     optionsHtml += '<option value="' + esc(staffListCache[i].name) + '">' + esc(staffListCache[i].name) + '</option>';
   }
 
-  div.innerHTML = '<div class="staff-num">' + idx + '人目'
-    + '<button class="remove-btn" onclick="removeStaffRow(' + idx + ')" style="float:right">削除</button>'
+  // 行HTML（番号 + プルダウン + トグル）
+  var rowHtml = '<div class="staff-row" id="se-' + idx + '">'
+    + '<div class="staff-num">' + idx + '</div>'
+    + '<select id="sn-' + idx + '" onchange="onStaffNameChange(' + idx + ')">' + optionsHtml + '</select>'
+    + '<label class="nw-toggle"><input type="checkbox" id="snw-' + idx + '" onchange="onNormalWorkToggle(' + idx + ')"><span class="sw"></span></label>'
     + '</div>'
-    + '<div class="staff-fields">'
-    + '<select class="sn" data-idx="' + idx + '">' + optionsHtml + '</select>'
-    + '<div class="time-row">'
-    + '<input type="time" class="sci" placeholder="出勤">'
-    + '<input type="time" class="sco" placeholder="退勤">'
-    + '<input type="number" class="sb" placeholder="休憩" min="0" step="15" value="60">'
-    + '</div>'
+    + '<div class="staff-times collapsed" id="sr-' + idx + '">'
+    + '<div><div class="st-label">出勤</div><input type="time" id="sci-' + idx + '"></div>'
+    + '<div><div class="st-label">退勤</div><input type="time" id="sco-' + idx + '"></div>'
+    + '<div><div class="st-label">休憩</div><input type="number" id="sb-' + idx + '" min="0" step="15"></div>'
     + '</div>';
 
-  container.appendChild(div);
+  var wrapper = document.createElement('div');
+  wrapper.id = 'staff-wrapper-' + idx;
+  wrapper.innerHTML = rowHtml;
+  container.appendChild(wrapper);
 }
 
-function removeStaffRow(idx) {
-  var el = document.getElementById('staff-row-' + idx);
-  if (el) el.remove();
-  renumberStaffRows();
+function onStaffNameChange(idx) {
+  var hasName = document.getElementById('sn-' + idx).value.trim() !== '';
+  document.getElementById('sr-' + idx).classList.toggle('collapsed', !hasName);
 }
 
-function renumberStaffRows() {
-  var rows = document.querySelectorAll('#staff-container .staff-row');
-  for (var i = 0; i < rows.length; i++) {
-    var numEl = rows[i].querySelector('.staff-num');
-    if (numEl) {
-      // 番号テキストだけ更新（削除ボタンは残す）
-      var btnHtml = numEl.querySelector('.remove-btn').outerHTML;
-      numEl.innerHTML = (i + 1) + '人目' + btnHtml;
-    }
+function onNormalWorkToggle(idx) {
+  var cb = document.getElementById('snw-' + idx);
+  var ci = document.getElementById('sci-' + idx);
+  var co = document.getElementById('sco-' + idx);
+  var sb = document.getElementById('sb-' + idx);
+  if (cb.checked) {
+    ci.value = document.getElementById('default-checkin').value;
+    co.value = document.getElementById('default-checkout').value;
+    sb.value = document.getElementById('default-break').value;
+    ci.disabled = co.disabled = sb.disabled = true;
+  } else {
+    ci.disabled = co.disabled = sb.disabled = false;
   }
 }
 
 function applyDefaults() {
-  var ci = document.getElementById('default-checkin').value;
-  var co = document.getElementById('default-checkout').value;
-  var brk = document.getElementById('default-break').value;
-
-  var rows = document.querySelectorAll('#staff-container .staff-row');
-  for (var i = 0; i < rows.length; i++) {
-    if (ci) rows[i].querySelector('.sci').value = ci;
-    if (co) rows[i].querySelector('.sco').value = co;
-    if (brk !== '') rows[i].querySelector('.sb').value = brk;
+  var wrappers = document.querySelectorAll('#staff-container [id^="staff-wrapper-"]');
+  for (var i = 0; i < wrappers.length; i++) {
+    var sel = wrappers[i].querySelector('[id^="sn-"]');
+    if (sel && sel.value.trim()) {
+      var idx = sel.id.replace('sn-', '');
+      document.getElementById('snw-' + idx).checked = true;
+      onNormalWorkToggle(parseInt(idx));
+      document.getElementById('sr-' + idx).classList.remove('collapsed');
+    }
   }
-  showToast('デフォルト勤務を適用しました');
+  showToast('通常勤務を適用しました');
 }
 
 function collectStaffData() {
-  var rows = document.querySelectorAll('#staff-container .staff-row');
+  var wrappers = document.querySelectorAll('#staff-container [id^="staff-wrapper-"]');
   var result = [];
-  for (var i = 0; i < rows.length; i++) {
-    var name = rows[i].querySelector('.sn').value;
+  for (var i = 0; i < wrappers.length; i++) {
+    var sel = wrappers[i].querySelector('[id^="sn-"]');
+    var name = sel ? sel.value : '';
     if (!name) continue;
+    var idx = sel.id.replace('sn-', '');
     result.push({
       name: name,
-      checkIn: rows[i].querySelector('.sci').value,
-      checkOut: rows[i].querySelector('.sco').value,
-      breakMin: parseInt(rows[i].querySelector('.sb').value, 10) || 0
+      checkIn: document.getElementById('sci-' + idx).value,
+      checkOut: document.getElementById('sco-' + idx).value,
+      breakMin: parseInt(document.getElementById('sb-' + idx).value, 10) || 0
     });
   }
   return result;
