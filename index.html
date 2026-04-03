@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>BOOKS 請負報告</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Hiragino Sans',sans-serif;
+  background:#f5f5f7;color:#1d1d1f;min-height:100vh;
+  -webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;letter-spacing:-.01em;
+}
+.container{max-width:428px;margin:0 auto;padding:0 20px 120px}
+
+/* Loading */
+#loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#f5f5f7;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s}
+#loading-overlay.hidden{opacity:0;pointer-events:none}
+.spinner{width:28px;height:28px;border:2.5px solid #d2d2d7;border-top-color:#1d1d1f;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{margin-top:16px;font-size:13px;color:#86868b;font-weight:500}
+
+/* Header */
+.header{padding:48px 0 20px;text-align:left}
+.header h1{font-size:28px;font-weight:700;color:#1d1d1f;line-height:1.15;letter-spacing:-.03em}
+.header .badge{font-size:15px;color:#86868b;font-weight:400;margin-top:4px;display:block}
+
+/* Section */
+.section{background:#fff;border-radius:12px;padding:0;margin-bottom:12px;box-shadow:0 0 0 .5px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.04)}
+.section-inner{padding:20px}
+.section-title{font-size:13px;font-weight:600;color:#86868b;margin-bottom:16px;letter-spacing:.02em}
+
+/* Inputs */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:600;color:#86868b;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:12px;border:1px solid #d2d2d7;border-radius:10px;font-size:16px;color:#1d1d1f;background:#fff;-webkit-appearance:none;appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#007aff;box-shadow:0 0 0 3px rgba(0,122,255,.12)}
+.field textarea{min-height:80px;resize:vertical;font-family:inherit}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2386868b' d='M6 8.825L1.175 4 2.238 2.938 6 6.7l3.763-3.763L10.825 4z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+
+/* Station row */
+.station-row{display:flex;gap:8px;margin-bottom:8px}
+.station-row input{flex:1}
+
+/* Staff row */
+.staff-row{background:#f9f9fb;border-radius:10px;padding:14px;margin-bottom:10px;border:1px solid #e5e5ea}
+.staff-row .staff-num{font-size:11px;font-weight:600;color:#86868b;margin-bottom:8px}
+.staff-row .staff-fields{display:grid;grid-template-columns:1fr;gap:8px}
+.staff-row .time-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px}
+.staff-row input,.staff-row select{padding:10px;font-size:15px;border:1px solid #d2d2d7;border-radius:8px;background:#fff;width:100%}
+.staff-row .remove-btn{background:none;border:none;color:#ff3b30;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;text-align:right}
+
+/* Default work */
+.default-work{background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px;border:1px solid #bfdbfe}
+.default-work .dw-title{font-size:13px;font-weight:600;color:#007aff;margin-bottom:10px}
+.default-work .dw-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin-bottom:8px}
+.default-work input{padding:10px;font-size:15px;border:1px solid #bfdbfe;border-radius:8px;background:#fff;width:100%}
+
+/* Buttons */
+.btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:17px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:-.01em}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:#007aff;color:#fff}
+.btn-primary:disabled{background:#d2d2d7;color:#86868b;cursor:default;transform:none}
+.btn-secondary{background:#e5e5ea;color:#1d1d1f;margin-top:8px}
+.btn-add{background:#f0fdf4;color:#34c759;border:1px solid #bbf7d0;margin-bottom:16px}
+.btn-apply{background:#007aff;color:#fff;padding:10px 16px;font-size:14px;border-radius:8px;width:auto}
+.btn-small{font-size:14px;padding:10px 16px;width:auto;border-radius:8px}
+
+/* Back */
+.back-btn{display:inline-flex;align-items:center;gap:2px;color:#86868b;font-size:15px;font-weight:400;cursor:pointer;padding:12px 0;background:none;border:none}
+.back-btn:active{opacity:.5}
+
+/* History */
+.history-item{padding:14px 20px;cursor:pointer;transition:background .15s}
+.history-item:active{background:#f5f5f7}
+.history-item+.history-item{border-top:1px solid #e5e5ea}
+.history-item .hi-date{font-size:13px;color:#86868b;font-weight:500}
+.history-item .hi-project{font-size:17px;font-weight:600;margin-top:2px}
+.history-item .hi-meta{font-size:13px;color:#86868b;margin-top:4px}
+.history-detail{padding:0 20px 16px;display:none}
+.history-detail.open{display:block}
+.history-detail .hd-staff{font-size:14px;color:#1d1d1f;padding:4px 0}
+
+/* Confirm */
+.confirm-table{width:100%;border-collapse:collapse;font-size:14px}
+.confirm-table th{text-align:left;color:#86868b;font-weight:500;padding:6px 0;font-size:13px}
+.confirm-table td{padding:6px 0;font-weight:500}
+.confirm-staff{margin-top:12px}
+.confirm-staff .cs-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f5;font-size:14px}
+
+/* Toast */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}
+
+/* Screen */
+.screen{display:none}.screen.active{display:block}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">読み込み中...</div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<div class="container">
+
+<!-- ===== Screen: Top ===== -->
+<div id="screen-top" class="screen active">
+  <div class="header">
+    <h1>請負報告</h1>
+    <span class="badge">BOOKS 請負大会管理</span>
+  </div>
+
+  <div class="section">
+    <div class="section-inner">
+      <div class="section-title">報告者名</div>
+      <div class="field">
+        <input type="text" id="reporter-name" placeholder="報告者名を入力">
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="goToReport()">報告を作成する</button>
+  <button class="btn btn-secondary" onclick="goToHistory()">報告履歴を見る</button>
+</div>
+
+<!-- ===== Screen: Report ===== -->
+<div id="screen-report" class="screen">
+  <button class="back-btn" onclick="showScreen('screen-top')">‹ 戻る</button>
+  <div class="header">
+    <h1>請負報告</h1>
+  </div>
+
+  <!-- 日付・プロジェクト -->
+  <div class="section">
+    <div class="section-inner">
+      <div class="section-title">基本情報</div>
+      <div class="field">
+        <label>日付</label>
+        <input type="date" id="rpt-date">
+      </div>
+      <div class="field">
+        <label>プロジェクト名</label>
+        <input type="text" id="rpt-project" placeholder="例: ○○杯運営代行">
+      </div>
+      <div class="field">
+        <label>最寄り駅（最大3つ）</label>
+        <div class="station-row"><input type="text" id="rpt-station-0" placeholder="最寄り駅①"></div>
+        <div class="station-row"><input type="text" id="rpt-station-1" placeholder="最寄り駅②"></div>
+        <div class="station-row"><input type="text" id="rpt-station-2" placeholder="最寄り駅③"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- デフォルト勤務 -->
+  <div class="section">
+    <div class="section-inner">
+      <div class="default-work">
+        <div class="dw-title">デフォルト勤務</div>
+        <div class="dw-row">
+          <input type="time" id="default-checkin" placeholder="出勤">
+          <input type="time" id="default-checkout" placeholder="退勤">
+          <input type="number" id="default-break" placeholder="休憩" min="0" step="15" value="60">
+        </div>
+        <button class="btn btn-apply" onclick="applyDefaults()">全スタッフに適用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- スタッフ勤務 -->
+  <div class="section">
+    <div class="section-inner">
+      <div class="section-title">スタッフ勤務</div>
+      <div id="staff-container"></div>
+      <button class="btn btn-add" onclick="addStaffRow()">＋ スタッフ追加</button>
+    </div>
+  </div>
+
+  <!-- 大会報告 -->
+  <div class="section">
+    <div class="section-inner">
+      <div class="section-title">大会報告（任意）</div>
+      <div class="field">
+        <textarea id="rpt-report" placeholder="特記事項があれば入力"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="goToConfirm()">確認画面へ</button>
+</div>
+
+<!-- ===== Screen: Confirm ===== -->
+<div id="screen-confirm" class="screen">
+  <button class="back-btn" onclick="showScreen('screen-report')">‹ 戻る</button>
+  <div class="header">
+    <h1>送信確認</h1>
+  </div>
+
+  <div class="section">
+    <div class="section-inner">
+      <table class="confirm-table" id="confirm-info"></table>
+      <div class="confirm-staff" id="confirm-staff"></div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="btn-submit" onclick="submitReport()">送信する</button>
+</div>
+
+<!-- ===== Screen: Done ===== -->
+<div id="screen-done" class="screen">
+  <div class="header" style="text-align:center;padding-top:100px">
+    <div style="font-size:64px;margin-bottom:16px">✓</div>
+    <h1>送信完了</h1>
+    <span class="badge" id="done-message"></span>
+  </div>
+  <button class="btn btn-secondary" onclick="resetForm()" style="margin-top:32px">トップに戻る</button>
+</div>
+
+<!-- ===== Screen: History ===== -->
+<div id="screen-history" class="screen">
+  <button class="back-btn" onclick="showScreen('screen-top')">‹ 戻る</button>
+  <div class="header">
+    <h1>報告履歴</h1>
+    <span class="badge">直近3ヶ月</span>
+  </div>
+  <div class="section" id="history-list">
+    <div class="section-inner"><div class="loading-text">読み込み中...</div></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ==========================================
+// 設定
+// ==========================================
+var API_URL = 'https://script.google.com/macros/s/AKfycby2eVbBIssPib9bC3st8mRHz_GpHnqYJ_8EGapa_dn_58OSqYXGfSRi5wL_Is7ic3hY/exec';
+
+var LS_REPORTER = 'ukeoi_reporter';
+var staffListCache = [];
+var staffRowCount = 0;
+
+// ==========================================
+// 初期化
+// ==========================================
+window.addEventListener('DOMContentLoaded', function() {
+  // 報告者名をlocalStorageから復元
+  var saved = localStorage.getItem(LS_REPORTER);
+  if (saved) document.getElementById('reporter-name').value = saved;
+
+  // 日付をデフォルト（今日）に
+  document.getElementById('rpt-date').value = formatDate(new Date());
+
+  // スタッフ一覧を取得（API_URL未設定時はスキップ）
+  if (API_URL) {
+    fetchStaffList(function() {
+      hideLoading();
+    });
+  } else {
+    hideLoading();
+  }
+});
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+// ==========================================
+// 画面遷移
+// ==========================================
+function showScreen(id) {
+  var screens = document.querySelectorAll('.screen');
+  for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goToReport() {
+  var reporter = document.getElementById('reporter-name').value.trim();
+  if (!reporter) { showToast('報告者名を入力してください'); return; }
+  localStorage.setItem(LS_REPORTER, reporter);
+
+  // デフォルト10行生成
+  if (staffRowCount === 0) {
+    for (var i = 0; i < 10; i++) addStaffRow();
+  }
+  showScreen('screen-report');
+}
+
+function goToHistory() {
+  showScreen('screen-history');
+  fetchHistory();
+}
+
+function goToConfirm() {
+  // バリデーション
+  var date = document.getElementById('rpt-date').value;
+  var project = document.getElementById('rpt-project').value.trim();
+  if (!date) { showToast('日付を入力してください'); return; }
+  if (!project) { showToast('プロジェクト名を入力してください'); return; }
+
+  var staffData = collectStaffData();
+  if (staffData.length === 0) { showToast('スタッフを1名以上入力してください'); return; }
+
+  // 入力不足チェック
+  for (var i = 0; i < staffData.length; i++) {
+    var s = staffData[i];
+    if (!s.checkIn || !s.checkOut) {
+      showToast(s.name + ' の出退勤が未入力です');
+      return;
+    }
+  }
+
+  // 確認画面を構築
+  var reporter = document.getElementById('reporter-name').value.trim();
+  var report = document.getElementById('rpt-report').value.trim();
+
+  var infoHtml = '<tr><th>報告者</th><td>' + esc(reporter) + '</td></tr>'
+    + '<tr><th>日付</th><td>' + esc(date) + '</td></tr>'
+    + '<tr><th>プロジェクト</th><td>' + esc(project) + '</td></tr>';
+  document.getElementById('confirm-info').innerHTML = infoHtml;
+
+  var staffHtml = '<div style="font-size:13px;font-weight:600;color:#86868b;margin-bottom:8px">スタッフ（' + staffData.length + '名）</div>';
+  for (var i = 0; i < staffData.length; i++) {
+    var s = staffData[i];
+    staffHtml += '<div class="cs-row"><span>' + esc(s.name) + '</span><span>' + s.checkIn + '〜' + s.checkOut + '（休憩' + s.breakMin + '分）</span></div>';
+  }
+  if (report) {
+    staffHtml += '<div style="margin-top:12px;font-size:13px;color:#86868b;font-weight:600">大会報告</div><div style="font-size:14px;margin-top:4px;white-space:pre-wrap">' + esc(report) + '</div>';
+  }
+  document.getElementById('confirm-staff').innerHTML = staffHtml;
+
+  showScreen('screen-confirm');
+}
+
+// ==========================================
+// API通信
+// ==========================================
+function fetchStaffList(callback) {
+  fetch(API_URL + '?action=getStaffList')
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res.success) {
+        staffListCache = res.staffList;
+      } else {
+        showToast('スタッフ取得エラー: ' + res.message);
+      }
+      if (callback) callback();
+    })
+    .catch(function(e) {
+      showToast('通信エラー: ' + e.message);
+      if (callback) callback();
+    });
+}
+
+function submitReport() {
+  var btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '送信中...';
+
+  var stations = [];
+  for (var i = 0; i < 3; i++) {
+    var v = document.getElementById('rpt-station-' + i).value.trim();
+    if (v) stations.push(v);
+  }
+
+  var payload = {
+    action: 'submitUkeoi',
+    reporter: document.getElementById('reporter-name').value.trim(),
+    date: document.getElementById('rpt-date').value,
+    projectName: document.getElementById('rpt-project').value.trim(),
+    stations: stations,
+    staffList: collectStaffData(),
+    report: document.getElementById('rpt-report').value.trim()
+  };
+
+  fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.success) {
+      document.getElementById('done-message').textContent = res.message;
+      showScreen('screen-done');
+    } else {
+      showToast('エラー: ' + res.message);
+      btn.disabled = false;
+      btn.textContent = '送信する';
+    }
+  })
+  .catch(function(e) {
+    showToast('通信エラー: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '送信する';
+  });
+}
+
+function fetchHistory() {
+  var container = document.getElementById('history-list');
+  container.innerHTML = '<div class="section-inner"><div class="loading-text">読み込み中...</div></div>';
+
+  fetch(API_URL + '?action=getHistory')
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res.success || res.history.length === 0) {
+        container.innerHTML = '<div class="section-inner"><div style="color:#86868b;font-size:14px;text-align:center;padding:20px 0">履歴がありません</div></div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < res.history.length; i++) {
+        var h = res.history[i];
+        html += '<div class="history-item" onclick="toggleHistoryDetail(this)">'
+          + '<div class="hi-date">' + esc(h.date) + '</div>'
+          + '<div class="hi-project">' + esc(h.project) + '</div>'
+          + '<div class="hi-meta">' + h.staffList.length + '名</div>'
+          + '</div>'
+          + '<div class="history-detail">';
+        for (var j = 0; j < h.staffList.length; j++) {
+          var s = h.staffList[j];
+          html += '<div class="hd-staff">' + esc(s.name) + ' ' + s.checkIn + '〜' + s.checkOut + '（休憩' + s.breakMin + '分）</div>';
+        }
+        html += '</div>';
+      }
+      container.innerHTML = html;
+    })
+    .catch(function(e) {
+      container.innerHTML = '<div class="section-inner"><div style="color:#ff3b30;font-size:14px">読み込みエラー: ' + esc(e.message) + '</div></div>';
+    });
+}
+
+function toggleHistoryDetail(el) {
+  var detail = el.nextElementSibling;
+  if (detail) detail.classList.toggle('open');
+}
+
+// ==========================================
+// スタッフ行管理
+// ==========================================
+function addStaffRow() {
+  staffRowCount++;
+  var idx = staffRowCount;
+  var container = document.getElementById('staff-container');
+
+  var div = document.createElement('div');
+  div.className = 'staff-row';
+  div.id = 'staff-row-' + idx;
+
+  var optionsHtml = '<option value="">-- スタッフ選択 --</option>';
+  for (var i = 0; i < staffListCache.length; i++) {
+    optionsHtml += '<option value="' + esc(staffListCache[i].name) + '">' + esc(staffListCache[i].name) + '</option>';
+  }
+
+  div.innerHTML = '<div class="staff-num">' + idx + '人目'
+    + '<button class="remove-btn" onclick="removeStaffRow(' + idx + ')" style="float:right">削除</button>'
+    + '</div>'
+    + '<div class="staff-fields">'
+    + '<select class="sn" data-idx="' + idx + '">' + optionsHtml + '</select>'
+    + '<div class="time-row">'
+    + '<input type="time" class="sci" placeholder="出勤">'
+    + '<input type="time" class="sco" placeholder="退勤">'
+    + '<input type="number" class="sb" placeholder="休憩" min="0" step="15" value="60">'
+    + '</div>'
+    + '</div>';
+
+  container.appendChild(div);
+}
+
+function removeStaffRow(idx) {
+  var el = document.getElementById('staff-row-' + idx);
+  if (el) el.remove();
+  renumberStaffRows();
+}
+
+function renumberStaffRows() {
+  var rows = document.querySelectorAll('#staff-container .staff-row');
+  for (var i = 0; i < rows.length; i++) {
+    var numEl = rows[i].querySelector('.staff-num');
+    if (numEl) {
+      // 番号テキストだけ更新（削除ボタンは残す）
+      var btnHtml = numEl.querySelector('.remove-btn').outerHTML;
+      numEl.innerHTML = (i + 1) + '人目' + btnHtml;
+    }
+  }
+}
+
+function applyDefaults() {
+  var ci = document.getElementById('default-checkin').value;
+  var co = document.getElementById('default-checkout').value;
+  var brk = document.getElementById('default-break').value;
+
+  var rows = document.querySelectorAll('#staff-container .staff-row');
+  for (var i = 0; i < rows.length; i++) {
+    if (ci) rows[i].querySelector('.sci').value = ci;
+    if (co) rows[i].querySelector('.sco').value = co;
+    if (brk !== '') rows[i].querySelector('.sb').value = brk;
+  }
+  showToast('デフォルト勤務を適用しました');
+}
+
+function collectStaffData() {
+  var rows = document.querySelectorAll('#staff-container .staff-row');
+  var result = [];
+  for (var i = 0; i < rows.length; i++) {
+    var name = rows[i].querySelector('.sn').value;
+    if (!name) continue;
+    result.push({
+      name: name,
+      checkIn: rows[i].querySelector('.sci').value,
+      checkOut: rows[i].querySelector('.sco').value,
+      breakMin: parseInt(rows[i].querySelector('.sb').value, 10) || 0
+    });
+  }
+  return result;
+}
+
+// ==========================================
+// ユーティリティ
+// ==========================================
+function formatDate(d) {
+  var y = d.getFullYear();
+  var m = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  return y + '-' + m + '-' + day;
+}
+
+function esc(s) {
+  if (!s) return '';
+  var d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+function resetForm() {
+  document.getElementById('rpt-project').value = '';
+  document.getElementById('rpt-station-0').value = '';
+  document.getElementById('rpt-station-1').value = '';
+  document.getElementById('rpt-station-2').value = '';
+  document.getElementById('rpt-report').value = '';
+  document.getElementById('rpt-date').value = formatDate(new Date());
+  document.getElementById('staff-container').innerHTML = '';
+  staffRowCount = 0;
+  document.getElementById('btn-submit').disabled = false;
+  document.getElementById('btn-submit').textContent = '送信する';
+  showScreen('screen-top');
+}
+</script>
+</body>
+</html>
