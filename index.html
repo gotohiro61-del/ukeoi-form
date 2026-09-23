@@ -108,6 +108,18 @@ body{
 
 /* Screen */
 .screen{display:none}.screen.active{display:block}
+
+/* PIN認証ゲート（houkoku-form と同じ見た目） */
+#pin-gate{position:fixed;top:0;left:0;right:0;bottom:0;background:#f5f5f7;z-index:99999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#pin-gate.show{display:flex}
+.pin-box{max-width:340px;width:100%;text-align:center}
+.pin-title{font-size:22px;font-weight:700;color:#1d1d1f;margin-bottom:6px;letter-spacing:-.02em}
+.pin-desc{font-size:13px;color:#86868b;margin-bottom:24px;line-height:1.5}
+.pin-inputs{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
+.pin-inputs input{width:54px;height:64px;border:2px solid #d2d2d7;border-radius:12px;text-align:center;font-size:28px;font-weight:600;background:#fff;color:#1d1d1f;-webkit-text-security:disc}
+.pin-inputs input:focus{outline:none;border-color:#007aff}
+.pin-error{min-height:20px;font-size:13px;color:#ff3b30;font-weight:500;margin-bottom:10px}
+.pin-note{font-size:12px;color:#86868b;margin-top:22px;line-height:1.7}
 </style>
 </head>
 <body>
@@ -120,6 +132,24 @@ body{
 
 <!-- Toast -->
 <div id="toast" class="toast"></div>
+
+<!-- PIN認証ゲート -->
+<div id="pin-gate">
+  <div class="pin-box">
+    <div style="font-size:44px;margin-bottom:14px">&#x1F510;</div>
+    <div class="pin-title">PINを入力</div>
+    <div class="pin-desc">案内された4桁のPINを入力してください</div>
+    <div class="pin-inputs">
+      <input type="tel" maxlength="1" id="pin-d0" inputmode="numeric" autocomplete="off">
+      <input type="tel" maxlength="1" id="pin-d1" inputmode="numeric" autocomplete="off">
+      <input type="tel" maxlength="1" id="pin-d2" inputmode="numeric" autocomplete="off">
+      <input type="tel" maxlength="1" id="pin-d3" inputmode="numeric" autocomplete="off">
+    </div>
+    <div id="pin-error" class="pin-error"></div>
+    <button id="pin-submit" class="btn btn-primary" onclick="pinGateSubmit()">確認</button>
+    <div class="pin-note">PINが分からない場合は管理者にお問い合わせください<br>（一度入力すると12時間は再入力不要です）</div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -254,6 +284,155 @@ var staffListCache = [];
 var staffRowCount = 0;
 
 // ==========================================
+// PIN認証（4桁PIN → 12時間有効のトークン）
+// トークンは localStorage に保存し、GET は ?token=、POST は本文の token で送る。
+// 期限切れ・無効（サーバーが AUTH_REQUIRED を返した）ときは PIN 画面に戻す。
+// ==========================================
+var LS_DEVICE = 'ukeoi_deviceId';
+var LS_TOKEN = 'ukeoi_token';
+var LS_TOKEN_EXP = 'ukeoi_tokenExp';
+var memAuth = null;        // localStorage が使えない端末用
+var afterPinAuth = null;   // PIN が通ったあとに続きを実行する処理
+
+function newDeviceId() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+function ensureDeviceId() {
+  try {
+    var id = localStorage.getItem(LS_DEVICE);
+    if (id && /^[A-Za-z0-9_-]{8,64}$/.test(id)) return id;
+    id = newDeviceId();
+    localStorage.setItem(LS_DEVICE, id);
+    return id;
+  } catch (e) {
+    window._memDeviceId = window._memDeviceId || newDeviceId();
+    return window._memDeviceId;
+  }
+}
+
+// 有効なトークン（期限の1分前からは無効扱い＝再入力）。無ければ ''
+function getToken() {
+  var t = '', exp = 0;
+  try {
+    t = localStorage.getItem(LS_TOKEN) || '';
+    exp = parseInt(localStorage.getItem(LS_TOKEN_EXP) || '0', 10);
+  } catch (e) {}
+  if (!t && memAuth) { t = memAuth.token; exp = memAuth.expiresAt; }
+  return (t && exp && Date.now() < exp - 60000) ? t : '';
+}
+
+function storeToken(token, expiresAt) {
+  memAuth = { token: token, expiresAt: expiresAt };
+  try {
+    localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_TOKEN_EXP, String(expiresAt));
+  } catch (e) {}
+}
+
+function clearToken() {
+  memAuth = null;
+  try {
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_TOKEN_EXP);
+  } catch (e) {}
+}
+
+// PIN 画面を出し、通ったら next を実行する
+function requirePin(next) {
+  afterPinAuth = next || null;
+  document.getElementById('pin-gate').classList.add('show');
+  setTimeout(function() { var f = document.getElementById('pin-d0'); if (f) f.focus(); }, 80);
+}
+
+function hidePinGate() {
+  document.getElementById('pin-gate').classList.remove('show');
+}
+
+// サーバーが「PINが必要」と返したか（トークン無し・期限切れ・改ざん）
+function isAuthRequired(res) {
+  return res && res.error === 'AUTH_REQUIRED';
+}
+
+function apiGetUrl(action) {
+  return API_URL + '?action=' + encodeURIComponent(action) + '&token=' + encodeURIComponent(getToken());
+}
+
+function pinGateInit() {
+  var inputs = [0, 1, 2, 3].map(function(i) { return document.getElementById('pin-d' + i); });
+  inputs.forEach(function(inp, i) {
+    inp.addEventListener('input', function() {
+      var v = (inp.value || '').replace(/\D/g, '').slice(0, 1);
+      inp.value = v;
+      if (v && i < 3) inputs[i + 1].focus();
+      if (i === 3 && v) {
+        var pin = inputs.map(function(x) { return x.value; }).join('');
+        if (/^\d{4}$/.test(pin)) pinGateSubmit();
+      }
+    });
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i - 1].focus();
+    });
+    inp.addEventListener('paste', function(e) {
+      e.preventDefault();
+      var data = (e.clipboardData || window.clipboardData).getData('text');
+      var digits = (data || '').replace(/\D/g, '').slice(0, 4);
+      for (var k = 0; k < 4; k++) inputs[k].value = digits[k] || '';
+      if (digits.length === 4) pinGateSubmit();
+      else if (digits.length > 0) inputs[Math.min(digits.length, 3)].focus();
+    });
+  });
+}
+
+var pinSending = false;
+function pinGateSubmit() {
+  if (pinSending) return;
+  var pin = [0, 1, 2, 3].map(function(i) { return document.getElementById('pin-d' + i).value; }).join('');
+  var errEl = document.getElementById('pin-error');
+  if (!/^\d{4}$/.test(pin)) { errEl.textContent = '4桁の数字を入力してください'; return; }
+  errEl.textContent = '';
+  var btn = document.getElementById('pin-submit');
+  btn.disabled = true;
+  btn.textContent = '確認中...';
+  pinSending = true;
+
+  fetch(API_URL + '?action=verifyPin&pin=' + encodeURIComponent(pin) + '&deviceId=' + encodeURIComponent(ensureDeviceId()))
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res && res.ok && res.token) {
+        storeToken(res.token, res.expiresAt);
+        hidePinGate();
+        var next = afterPinAuth;
+        afterPinAuth = null;
+        if (next) next();
+        return;
+      }
+      var code = res && res.error;
+      if (code === 'INVALID_PIN') errEl.textContent = 'PINが正しくありません';
+      else if (code === 'INVALID_PIN_FORMAT') errEl.textContent = '4桁の数字を入力してください';
+      else if (code === 'RATE_LIMITED') errEl.textContent = '入力の失敗が多いため受付を一時停止しています。1時間ほど待ってから再試行してください';
+      else if (code === 'NOT_CONFIGURED') errEl.textContent = 'システムの設定が完了していません。管理者にご連絡ください';
+      else if (code === 'BUSY') errEl.textContent = '混み合っています。少し待ってからもう一度入力してください';
+      else if (code === 'INVALID_DEVICE') {
+        try { localStorage.removeItem(LS_DEVICE); } catch (e) {}
+        errEl.textContent = 'もう一度PINを入力してください';
+      }
+      else errEl.textContent = 'エラー: ' + ((res && res.message) || '不明');
+    })
+    .catch(function() {
+      errEl.textContent = '通信エラー。電波の良い場所で再試行してください';
+    })
+    .then(function() {
+      pinSending = false;
+      btn.disabled = false;
+      btn.textContent = '確認';
+      for (var k = 0; k < 4; k++) document.getElementById('pin-d' + k).value = '';
+      if (document.getElementById('pin-gate').classList.contains('show')) document.getElementById('pin-d0').focus();
+    });
+}
+
+// ==========================================
 // 初期化
 // ==========================================
 window.addEventListener('DOMContentLoaded', function() {
@@ -264,11 +443,18 @@ window.addEventListener('DOMContentLoaded', function() {
   // 日付をデフォルト（今日）に
   document.getElementById('rpt-date').value = formatDate(new Date());
 
-  // スタッフ一覧を取得（API_URL未設定時はスキップ）
+  pinGateInit();
+
+  // スタッフ一覧を取得（API_URL未設定時はスキップ）。有効なトークンが無ければ先に PIN 画面
   if (API_URL) {
-    fetchStaffList(function() {
+    if (getToken()) {
+      fetchStaffList(function() {
+        hideLoading();
+      });
+    } else {
       hideLoading();
-    });
+      requirePin(function() { fetchStaffList(); });
+    }
   } else {
     hideLoading();
   }
@@ -350,11 +536,14 @@ function goToConfirm() {
 // API通信
 // ==========================================
 function fetchStaffList(callback) {
-  fetch(API_URL + '?action=getStaffList')
+  fetch(apiGetUrl('getStaffList'))
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res.success) {
         staffListCache = res.staffList;
+      } else if (isAuthRequired(res)) {
+        clearToken();
+        requirePin(function() { fetchStaffList(); });
       } else {
         showToast('スタッフ取得エラー: ' + res.message);
       }
@@ -379,6 +568,7 @@ function submitReport() {
 
   var payload = {
     action: 'submitUkeoi',
+    token: getToken(),
     reporter: document.getElementById('reporter-name').value.trim(),
     date: document.getElementById('rpt-date').value,
     projectName: document.getElementById('rpt-project').value.trim(),
@@ -397,6 +587,12 @@ function submitReport() {
     if (res.success) {
       document.getElementById('done-message').textContent = res.message;
       showScreen('screen-done');
+    } else if (isAuthRequired(res)) {
+      // 送信内容は画面に残したまま PIN を再入力 → もう一度「送信する」を押してもらう（未登録なので二重登録にならない）
+      clearToken();
+      btn.disabled = false;
+      btn.textContent = '送信する';
+      requirePin(function() { showToast('PINを確認しました。もう一度「送信する」を押してください'); });
     } else {
       showToast('エラー: ' + res.message);
       btn.disabled = false;
@@ -414,9 +610,14 @@ function fetchHistory() {
   var container = document.getElementById('history-list');
   container.innerHTML = '<div class="section-inner"><div class="loading-text">読み込み中...</div></div>';
 
-  fetch(API_URL + '?action=getHistory')
+  fetch(apiGetUrl('getHistory'))
     .then(function(r) { return r.json(); })
     .then(function(res) {
+      if (isAuthRequired(res)) {
+        clearToken();
+        requirePin(function() { fetchHistory(); });
+        return;
+      }
       if (!res.success || res.history.length === 0) {
         container.innerHTML = '<div class="section-inner"><div style="color:#86868b;font-size:14px;text-align:center;padding:20px 0">履歴がありません</div></div>';
         return;
