@@ -7,11 +7,13 @@
 
 | 項目 | 内容 |
 |---|---|
-| 入口 | 最初に 4桁の PIN 画面が出る。PIN はサーバー（`?action=verifyPin&pin=…&deviceId=…`）で照合し、12時間有効のトークンを受け取る |
+| PIN | **完了報告フォーム（houkoku-form）と同じ PIN**（LINE で届く4桁。毎月切り替わる）。請負スタッフと運営スタッフは同じ人たちのため、請負専用の PIN は持たない |
+| 入口 | 最初に 4桁の PIN 画面が出る。PIN は請負のサーバー（`?action=verifyPin&pin=…&deviceId=…`）に送り、請負のサーバーが大会管理Webアプリ（完了報告フォームのサーバー）に照合を問い合わせる。合っていれば12時間有効の請負用トークンを受け取る |
 | 保存 | トークンと有効期限を `localStorage`（`ukeoi_token` / `ukeoi_tokenExp`）に保存。期限の1分前からは PIN を再入力 |
 | 送り方 | GET（スタッフ一覧・履歴）は `?token=…`、POST（報告の登録）は本文の `token`。GAS はHTTPヘッダーを読めないため |
 | 期限切れ・無効 | サーバーが `{"error":"AUTH_REQUIRED"}` を返したらトークンを捨てて PIN 画面に戻る。送信時なら入力内容は画面に残り、PIN 再入力後にもう一度「送信する」を押す（前回分は登録されていない） |
-| 秘密の置き場 | PIN・トークン鍵は GAS のスクリプトプロパティ（`UKEOI_PIN` / `UKEOI_TOKEN_SECRET`）だけ。このリポジトリ（公開）には書かない |
+| PIN 画面のエラー | `INVALID_PIN`（違う）／`RATE_LIMITED`（失敗が多く一時停止）／`busy`・`BUSY`（混雑）／`NOT_INITIALIZED`・`NOT_CONFIGURED`（サーバー側が未設定）／`UPSTREAM_ERROR`（照合先に接続できない） |
+| 秘密の置き場 | トークン鍵は勤務給与GAS のスクリプトプロパティ `UKEOI_TOKEN_SECRET` だけ。PIN は大会管理GAS 側で管理。どちらもこのリポジトリ（公開）には書かない |
 | 変えていないもの | `API_URL`、POST の `Content-Type: text/plain`、fetch オプション（`redirect` なし） |
 
 ## ブラウザでの簡易確認（route モック・本番へ通信しない）
@@ -70,8 +72,9 @@ const PIN = '2468', TOKEN = 'u1.mockdevice01.9999999999999.mocksig';
 
 ## 本番反映の順番（勤務給与GAS とそろえる）
 
-1. 勤務給与GAS のスクリプトプロパティに `UKEOI_PIN`（4桁）・`UKEOI_TOKEN_SECRET`（16文字以上）を登録
+1. 勤務給与GAS のスクリプトプロパティに `UKEOI_TOKEN_SECRET`（16文字以上）を登録（PIN の登録は不要。照合先の大会管理Webアプリの URL はコードの既定値）
 2. 勤務給与GAS を `clasp push` → 請負Webアプリの既存デプロイを版更新（URL は変わらない）
 3. このリポジトリ（`index.html`）を反映
 
 2 と 3 の間（数分）は、古いフォームでスタッフ一覧が出ない（サーバーが PIN を求めるため）。
+大会管理Webアプリの PIN の仕組み（`setupPinSystemFirstTime` 済み）が動いていることが前提（完了報告フォームで PIN が通れば OK）。

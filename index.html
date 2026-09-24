@@ -138,7 +138,7 @@ body{
   <div class="pin-box">
     <div style="font-size:44px;margin-bottom:14px">&#x1F510;</div>
     <div class="pin-title">PINを入力</div>
-    <div class="pin-desc">案内された4桁のPINを入力してください</div>
+    <div class="pin-desc">LINEで届いた4桁のPIN（完了報告フォームと同じ）を入力してください</div>
     <div class="pin-inputs">
       <input type="tel" maxlength="1" id="pin-d0" inputmode="numeric" autocomplete="off">
       <input type="tel" maxlength="1" id="pin-d1" inputmode="numeric" autocomplete="off">
@@ -147,7 +147,7 @@ body{
     </div>
     <div id="pin-error" class="pin-error"></div>
     <button id="pin-submit" class="btn btn-primary" onclick="pinGateSubmit()">確認</button>
-    <div class="pin-note">PINが分からない場合は管理者にお問い合わせください<br>（一度入力すると12時間は再入力不要です）</div>
+    <div class="pin-note">PINを忘れた場合は LINEグループの過去通知をご確認ください<br>（一度入力すると12時間は再入力不要です）</div>
   </div>
 </div>
 
@@ -412,8 +412,9 @@ function pinGateSubmit() {
       if (code === 'INVALID_PIN') errEl.textContent = 'PINが正しくありません';
       else if (code === 'INVALID_PIN_FORMAT') errEl.textContent = '4桁の数字を入力してください';
       else if (code === 'RATE_LIMITED') errEl.textContent = '入力の失敗が多いため受付を一時停止しています。1時間ほど待ってから再試行してください';
-      else if (code === 'NOT_CONFIGURED') errEl.textContent = 'システムの設定が完了していません。管理者にご連絡ください';
-      else if (code === 'BUSY') errEl.textContent = '混み合っています。少し待ってからもう一度入力してください';
+      else if (code === 'NOT_CONFIGURED' || code === 'NOT_INITIALIZED' || code === 'auth_not_configured') errEl.textContent = 'システムの設定が完了していません。管理者にご連絡ください';
+      else if (code === 'BUSY' || code === 'busy') errEl.textContent = '混み合っています。少し待ってからもう一度入力してください';
+      else if (code === 'UPSTREAM_ERROR') errEl.textContent = 'PINを確認できませんでした。少し待ってから再試行してください';
       else if (code === 'INVALID_DEVICE') {
         try { localStorage.removeItem(LS_DEVICE); } catch (e) {}
         errEl.textContent = 'もう一度PINを入力してください';
